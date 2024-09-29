@@ -34,40 +34,64 @@ def message_handler(message, data):
     if message["type"] == "send":
         payload = message["payload"]
         if payload == "hbc" and data is not None:
-            print("[*] saving index.android.bundle")
-            with open("index.android.bundle", "wb") as f:
+            filename = f"index.android.bundle_{int(time.time())}"
+            print(f"[*] Saving index.android.bundle to {filename}")
+            with open(filename, "wb") as f:
                 f.write(data)
+            print("[*] index.android.bundle is successfully saved")
 
 
-if len(sys.argv) != 2:
-    print("Missing process name")
+def usage():
+    print(f"Usage: {sys.argv[0]} spawn  <package name>")
+    print(f"       {sys.argv[0]} attach <process name>")
     quit()
+
+
+if len(sys.argv) != 3 or sys.argv[1] not in ["spawn", "attach"]:
+    usage()
 
 with open("./dump-on-client.js") as f:
     jscode = f.read()
 
-print("[*] Getting device")
-device = frida.get_usb_device(timeout=1)
-# device = frida.get_device_manager().add_remote_device("192.168.100.62:31337")
+print("[*] Getting the android device")
+# device = frida.get_usb_device(timeout=1)
+device = frida.get_device_manager().add_remote_device("192.168.0.100:31337")
 
-while True:
-    try:
-        process = device.get_process(sys.argv[1])
-        break
-    except KeyboardInterrupt:
-        quit()
-    except frida.ProcessNotFoundError:
-        continue
-    except frida.ServerNotRunningError as e:
-        print(e)
-        quit()
- 
-time.sleep(0.1)
-session = device.attach(process.pid)
-script = session.create_script(jscode)
-script.on("message", message_handler)
-script.load()
-print("[*] Attached")
+session = None
+
+if sys.argv[1] == "attach":
+    print(f"[*] Waiting for the process `{sys.argv[2]}` to be spawned by the user manually")
+
+    while True:
+        try:
+            process = device.get_process(sys.argv[2])
+            break
+        except KeyboardInterrupt:
+            quit()
+        except frida.ProcessNotFoundError:
+            continue
+        except frida.ServerNotRunningError as e:
+            print(e)
+            quit()
+     
+    time.sleep(0.1)
+    session = device.attach(process.pid)
+    script = session.create_script(jscode)
+    script.on("message", message_handler)
+    script.load()
+    print("[*] Script loaded successfully")
+
+elif sys.argv[1] == "spawn":
+    print(f"[*] Spawning {sys.argv[2]} application")
+    pid = device.spawn([sys.argv[2]])
+    print(f"[*] Application spawned successfully (pid={pid})")
+    session = device.attach(pid)
+    print(f"[*] Attached to process (pid={pid})")
+    script = session.create_script(jscode)
+    script.on("message", message_handler)
+    script.load()
+    print("[*] Script loaded successfully")
+    device.resume(pid)
 
 try:
     sys.stdin.read()
