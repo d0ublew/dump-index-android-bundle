@@ -1,5 +1,5 @@
 # dump-index-android-bundle
-Dump encrypted index.android.bundle at runtime
+Dump encrypted `index.android.bundle` at runtime
 
 ## Usage
 
@@ -14,3 +14,7 @@ python3 ./main.py attach 'foo app'
 frida -U -f com.example.foo -l ./dump-on-server.js
 frida -U -N com.example.foo -l ./dump-on-server.js
 ```
+
+## Similar Repositories
+
+- [dump-ios-jsbundle](https://github.com/d0ublew/dump-ios-jsbundle) (for iOS platform)
